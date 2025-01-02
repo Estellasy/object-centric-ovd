@@ -12,7 +12,7 @@ from utils.util import check_image_size
 __all__ = ["CustomDatasetMapper", "CustomDatasetMapperMix"]
 
 
-class CustomDatasetMapper(DatasetMapper):
+class CustomDatasetMapper(DatasetMapper):   # dataloader 需要看一下这里dataloader的形式
     @configurable
     def __init__(self, is_train: bool,
                  distillation=False,

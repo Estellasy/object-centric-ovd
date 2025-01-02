@@ -24,9 +24,9 @@ from detectron2.evaluation import (
 )
 from detectron2.modeling import build_model
 from detectron2.solver import build_lr_scheduler, build_optimizer
-from detectron2.utils.events import (
+from detectron2.utils.events import (  
     CommonMetricPrinter,
-    EventStorage,
+    EventStorage,   
     JSONWriter,
     TensorboardXWriter,
 )
@@ -84,12 +84,14 @@ def do_test(cfg, model):
 
 
 def do_train(cfg, model, resume=False):
+    # 初始化设置
     model.train()
     assert cfg.SOLVER.OPTIMIZER == 'SGD'
     assert cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE != 'full_model'
-    optimizer = build_optimizer(cfg, model)
-    scheduler = build_lr_scheduler(cfg, optimizer)
+    optimizer = build_optimizer(cfg, model) # 构建优化器 这里是基于detectron2提供的模板来完成的
+    scheduler = build_lr_scheduler(cfg, optimizer)  # 学习率调整
 
+    # 加载checkpoint
     checkpointer = DetectionCheckpointer(model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=scheduler)
 
     start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resume).get("iteration", -1) + 1
@@ -97,10 +99,11 @@ def do_train(cfg, model, resume=False):
         start_iter = 0
     max_iter = cfg.SOLVER.MAX_ITER
 
-    periodic_checkpointer = PeriodicCheckpointer(
+    periodic_checkpointer = PeriodicCheckpointer(   # 定期保存模型 每隔CHECKPOINT_PERIOD迭代保存一次模型
         checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD, max_iter=max_iter
     )
 
+    # 写入指标
     writers = (
         [
             CommonMetricPrinter(max_iter),
@@ -111,15 +114,16 @@ def do_train(cfg, model, resume=False):
         else []
     )
 
-    if cfg.WITH_IMAGE_LABELS:
+    if cfg.WITH_IMAGE_LABELS:   # 使用图像级标签 只有在PIS中才是True 其他的是False
         MapperClass = CustomDatasetMapperMix
-    elif cfg.MODEL.DISTILLATION:
+    elif cfg.MODEL.DISTILLATION:    # 使用知识蒸馏
         MapperClass = CustomDatasetMapper
     else:
         MapperClass = DatasetMapper
+    # 根据配置选择不同的数据映射器 通过MapperClass映射
     mapper = MapperClass(cfg, True) if cfg.INPUT.CUSTOM_AUG == '' else \
         MapperClass(cfg, True, augmentations=build_custom_augmentation(cfg, True))
-    if cfg.DATALOADER.SAMPLER_TRAIN in ['TrainingSampler', 'RepeatFactorTrainingSampler']:
+    if cfg.DATALOADER.SAMPLER_TRAIN in ['TrainingSampler', 'RepeatFactorTrainingSampler']:  # 训练的detection数据集
         data_loader = build_detection_train_loader(cfg, mapper=mapper)
     else:
         data_loader = build_custom_train_loader(cfg, mapper=mapper)
@@ -128,29 +132,32 @@ def do_train(cfg, model, resume=False):
         scaler = GradScaler()
 
     logger.info("Starting training from iteration {}".format(start_iter))
-    with EventStorage(start_iter) as storage:
+    with EventStorage(start_iter) as storage:   # 指标记录器
         step_timer = Timer()
         data_timer = Timer()
         start_time = time.perf_counter()
+        # 训练流程
         for data, iteration in zip(data_loader, range(start_iter, max_iter)):
             data_time = data_timer.seconds()
             storage.put_scalars(data_time=data_time)
             step_timer.reset()
             iteration = iteration + 1
             storage.step()
-            loss_dict = model(data)
+            loss_dict = model(data) # 损失函数 这里model前向传播直接输出损失函数
 
-            losses = sum(
+            # 原始loss_dict包含每个GPU上的损失
+            losses = sum(   # 计算损失
                 loss for k, loss in loss_dict.items())
             assert torch.isfinite(losses).all(), loss_dict
 
+            # reduced版本是所有GPU上损失的平均
             loss_dict_reduced = {k: v.item() for k, v in comm.reduce_dict(loss_dict).items()}
             losses_reduced = sum(loss for loss in loss_dict_reduced.values())
             if comm.is_main_process():
                 storage.put_scalars(total_loss=losses_reduced, **loss_dict_reduced)
 
             optimizer.zero_grad()
-            if cfg.FP16:
+            if cfg.FP16:    # 如果使用FP16混合精度训练
                 scaler.scale(losses).backward()
                 scaler.step(optimizer)
                 scaler.update()

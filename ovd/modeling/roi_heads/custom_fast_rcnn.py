@@ -130,9 +130,11 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
         else:
             proposal_boxes = gt_boxes = torch.empty((0, 4), device=proposal_deltas.device)
 
+        # 分类损失
         cls_loss = self.sigmoid_cross_entropy_loss(scores, gt_classes)
 
         # region-based knowledge distillation loss
+        # 知识蒸馏损失
         if distil_features is not None:
             image_features, clip_features = distil_features
             # Point-wise embedding matching loss (L1)
@@ -142,7 +144,7 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
                 irm_loss = self.irm_loss(image_features, clip_features)
                 return {
                     "cls_loss": cls_loss,
-                    "box_reg_loss": self.box_reg_loss(
+                    "box_reg_loss": self.box_reg_loss(  # 边界框回归损失
                         proposal_boxes, gt_boxes, proposal_deltas, gt_classes,
                         num_classes=num_classes),
                     "distil_l1_loss": distil_l1_loss,
@@ -180,29 +182,33 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
         return irm_loss * weight
 
     def sigmoid_cross_entropy_loss(self, pred_class_logits, gt_classes):
-        if pred_class_logits.numel() == 0:
+        if pred_class_logits.numel() == 0:  # 检查是否有预测值
             return pred_class_logits.new_zeros([1])[0]
 
+        # 获取batchsize和类别数
         B = pred_class_logits.shape[0]
-        C = pred_class_logits.shape[1] - 1
+        C = pred_class_logits.shape[1] - 1  # 类别-1 因为有背景
 
-        target = pred_class_logits.new_zeros(B, C + 1)
-        target[range(len(gt_classes)), gt_classes] = 1
-        target = target[:, :C]
+        # 1. 准备目标
+        target = pred_class_logits.new_zeros(B, C + 1)  # 创建全0矩阵
+        target[range(len(gt_classes)), gt_classes] = 1  # 将真实类别位置设为1（one-hot编码）
+        target = target[:, :C]  # 去掉背景类
 
+        # 2. 计算权重 处理类别不平衡
         weight = 1
 
-        if self.use_fed_loss and (self.freq_weight is not None):
+        if self.use_fed_loss and (self.freq_weight is not None):    # 使用联邦损失（处理长尾分布）
+            # 获取需要计算损失的类别索引
             appeared = get_fed_loss_inds(gt_classes, num_sample_cats=self.fed_loss_num_cat, C=C,
                                          weight=self.freq_weight)
-            appeared_mask = appeared.new_zeros(C + 1)
+            appeared_mask = appeared.new_zeros(C + 1)   # 创建mask 只关注出现的类别
             appeared_mask[appeared] = 1
             appeared_mask = appeared_mask[:C]
-            fed_w = appeared_mask.view(1, C).expand(B, C)
+            fed_w = appeared_mask.view(1, C).expand(B, C)   # 拓展掩码到batch大小
             weight = weight * fed_w.float()
-        if self.ignore_zero_cats and (self.freq_weight is not None):
+        if self.ignore_zero_cats and (self.freq_weight is not None):    # 拓展掩码到batch大小
             w = (self.freq_weight.view(-1) > 1e-4).float()
-            weight = weight * w.view(1, C).expand(B, C)
+            weight = weight * w.view(1, C).expand(B, C) # 应用权重
 
         cls_loss = F.binary_cross_entropy_with_logits(
             pred_class_logits[:, :-1], target, reduction='none')
@@ -330,12 +336,16 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
                 'box_reg_loss': score.new_zeros([1])[0]
             }
 
-    def forward(self, x):
-        x = torch.flatten(x, start_dim=1)
+    def forward(self, x):   # 前向传播
+        x = torch.flatten(x, start_dim=1)   # flatten特征 为什么需要flatten
+
+        # 分类预测
         scores = []
-        cls_scores = self.cls_score(x)
-        scores.append(cls_scores)
+        cls_scores = self.cls_score(x)  # 利用CLIP文本特征作为分类器权重
+        scores.append(cls_scores)   
         scores = torch.cat(scores, dim=1)
+
+        # 边界框回归
         proposal_deltas = self.bbox_pred(x)
         return scores, proposal_deltas
 
