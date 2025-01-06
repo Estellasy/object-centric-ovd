@@ -11,11 +11,14 @@ class CustomRes5ROIHeads(Res5ROIHeads):
     def __init__(self, **kwargs):
         cfg = kwargs.pop('cfg')
         super().__init__(**kwargs)
-        stage_channel_factor = 2 ** 3
+        # 计算输出通道数
+        stage_channel_factor = 2 ** 3   # Res5层的通道扩散因子
         out_channels = cfg.MODEL.RESNETS.RES2_OUT_CHANNELS * stage_channel_factor
 
+        # 配置参数
         self.with_image_labels = cfg.WITH_IMAGE_LABELS
         self.ws_num_props = cfg.MODEL.ROI_BOX_HEAD.WS_NUM_PROPS
+        # box预测
         self.box_predictor = CustomFastRCNNOutputLayers(
             cfg, ShapeSpec(channels=out_channels, height=1, width=1)
         )
@@ -29,23 +32,27 @@ class CustomRes5ROIHeads(Res5ROIHeads):
     def forward(self, images, features, proposals, targets=None, ann_type='box'):
         del images
 
-        features, distill_clip_features = features
+        features, distill_clip_features = features  # 分离普通特征和CLIP特征
         if self.training:
-            if ann_type == 'box':
-                proposals = self.label_and_sample_proposals(proposals, targets)
+            if ann_type == 'box':   # 训练阶段处理
+                proposals = self.label_and_sample_proposals(proposals, targets) # 使用边界框标注
             else:
                 proposals = self.get_top_proposals(proposals)
 
         proposal_boxes = [x.proposal_boxes for x in proposals]
         box_features = self._shared_roi_transform([features[f] for f in self.in_features], proposal_boxes)
-        predictions = self.box_predictor(box_features.mean(dim=[2, 3]))
+        predictions = self.box_predictor(box_features.mean(dim=[2, 3])) # ROI特征提取
 
+        # 知识蒸馏
         if self.training and distill_clip_features is not None:
             # distilling image embedding
+            # 提取区域特征
             distil_regions, distill_clip_embeds = distill_clip_features
             region_level_features = self._shared_roi_transform([features[f] for f in self.in_features], distil_regions)
+            # 计算图像嵌入
             image_embeds = region_level_features.mean(dim=[2, 3])
             # image distillation
+            # 特征投影和归一化
             proj_image_embeds = self.box_predictor.cls_score.linear(image_embeds)
             norm_image_embeds = F.normalize(proj_image_embeds, p=2, dim=1)
             normalized_clip_embeds = F.normalize(distill_clip_embeds, p=2, dim=1)

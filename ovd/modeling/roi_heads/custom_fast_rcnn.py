@@ -137,7 +137,7 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
         # 知识蒸馏损失
         if distil_features is not None:
             image_features, clip_features = distil_features
-            # Point-wise embedding matching loss (L1)
+            # Point-wise embedding matching loss (L1) 特征级别的知识蒸馏损失 对齐模型特征和教师特征
             distil_l1_loss = self.distil_l1_loss(image_features, clip_features)
             if self.irm_loss_weight > 0:
                 # Inter-embedding relationship matching loss (IRM)
@@ -215,15 +215,22 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
         loss = torch.sum(cls_loss * weight) / B
         return loss
 
+
+    # 边界框回归损失
     def box_reg_loss(
-            self, proposal_boxes, gt_boxes, pred_deltas, gt_classes, num_classes=-1):
+            self, 
+            proposal_boxes,     # RPN生层的候选框
+            gt_boxes,           # 真实框
+            pred_deltas,        # 预测的变化量
+            gt_classes,         # 真实类别
+            num_classes=-1):    # 真实类别数量
         """
         Allow custom background index
         """
         num_classes = num_classes if num_classes > 0 else self.num_classes
-        fg_inds = nonzero_tuple((gt_classes >= 0) & (gt_classes < num_classes))[0]
+        fg_inds = nonzero_tuple((gt_classes >= 0) & (gt_classes < num_classes))[0]  # 选择有效的前景样本
         # class-agnostic regression
-        fg_pred_deltas = pred_deltas[fg_inds]
+        fg_pred_deltas = pred_deltas[fg_inds]   # 计算目标变化量
         # smooth_l1 loss
         gt_pred_deltas = self.box2box_transform.get_deltas(proposal_boxes[fg_inds], gt_boxes[fg_inds], )
         box_reg_loss = smooth_l1_loss(fg_pred_deltas, gt_pred_deltas, self.smooth_l1_beta, reduction="sum")

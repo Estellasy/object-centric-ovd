@@ -29,6 +29,8 @@ coco/
         instances_val2017.json
 ```
 
+已完成COCO数据集的组织，使用`organize_dataset.py`脚本进行组织。
+
 ## COCO开放词汇
 
 OVD训练所需的标注文件`instances_train2017_seen_2_oriorder.json`、`instances_train2017_seen_2_oriorder_cat_info.json`
@@ -65,6 +67,8 @@ MAVL_proposals
 
 或者，按照以下说明从COCO标准标注生成它们。我们遵循[Detic](https://github.com/facebookresearch/Detic)的代码库进行数据集准备。
 
+生成开放词汇数据集 开放词汇分割
+
 1) COCO标注
 
 按照[OVR-CNN](https://github.com/alirezazareian/ovr-cnn/blob/master/ipynb/003.ipynb)的工作，我们首先创建开放词汇COCO分割。
@@ -82,7 +86,10 @@ python tools/get_coco_zeroshot_oriorder.py --data_path datasets/coco/zero-shot/i
 python tools/get_coco_zeroshot_oriorder.py --data_path datasets/coco/zero-shot/instances_val2017_all_2.json
 ```
 
+上面的标注已经准备好了，可以直接用于评估
+
 2) 从COCO-Captions获取图像级标签的标注
+不需要图像级标签，这一步省略
 
 最后需要准备的标注是`captions_train2017_tags_allcaps_pis.json`。
 对于图像级监督，我们使用COCO-captions标注并用MAVL预测进行过滤。
@@ -101,6 +108,7 @@ python tools/get_lvis_cat_info.py --ann datasets/coco/zero-shot/instances_train2
 ```
 
 3) PIS的建议框
+不需要PIS建议框，这一步省略
 
 使用COCO-captions的图像级标签`captions_train2017_tags_allcaps_pis.json`，
 使用以下命令通过MAVL生成PIS的伪建议框。从外部子模块下载检查点。
@@ -127,7 +135,11 @@ python tools/get_rkd_clip_feat.py -ckpt <mavl预训练权重路径> -dataset coc
         -output datasets/MAVL_proposals/coco_props/classagnostic_distilfeats
 ```
 
+这一部分，只需要CLIP嵌入，改写，将CLIP图像特征作为单独的pickle文件存储在每个图像中。
+
 ## LVIS开放词汇
+
+不做LVIS开放词汇，这一部分不需要看。
 
 OVD训练的标注文件`lvis_v1_train_norare`可以从[这里](https://mbzuaiac-my.sharepoint.com/:f:/g/personal/hanoona_bangalath_mbzuai_ac_ae/EjaR4-EQFmVNhaYmsJhbwKMBciHdSFd8Z2J7byTplHAURA?e=tbzhUM)下载，
 图像级监督的标注文件`imagenet_lvis_v1_pis`可以从[这里](https://mbzuaiac-my.sharepoint.com/:f:/g/personal/hanoona_bangalath_mbzuai_ac_ae/Eg22Nzk-QelGgjhSKwtQ25QB_FgDR92VOQU3lr79uMXqqQ?e=FSsFnt)下载。
