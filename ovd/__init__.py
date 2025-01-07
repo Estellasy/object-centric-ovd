@@ -7,3 +7,4 @@ from .modeling.roi_heads import custom_fast_rcnn
 from .datasets import lvis_v1
 from .datasets import imagenet
 from .datasets import coco_zeroshot
+from .datasets import neudet_zeroshot   # 这里记得导入

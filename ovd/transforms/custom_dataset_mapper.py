@@ -71,7 +71,10 @@ class CustomDatasetMapper(DatasetMapper):   # dataloader 需要看一下这里da
             region_boxes = []
             clip_embeds = []
             for p in range(len(distill_feats)):
-                box = transforms.apply_box(np.array([distill_feats[p][0]]))[0].clip(min=0).tolist()
+                box_data = distill_feats[p][0]  # 这是一个字典
+                box = box_data["bbox"]
+                # print(box_data, box)
+                box = transforms.apply_box(np.array([box]))[0].clip(min=0).tolist()
                 box = np.minimum(box, list(image_shape + image_shape)[::-1])
                 region_boxes.append(box)
                 clip_embeds.append(distill_feats[p][1])

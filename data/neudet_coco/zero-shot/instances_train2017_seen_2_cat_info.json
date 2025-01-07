@@ -1,0 +1,38 @@
+[
+    {
+        "id": 0,
+        "name": "good",
+        "image_count": 0,
+        "instance_count": 0
+    },
+    {
+        "id": 1,
+        "name": "crazing",
+        "image_count": 227,
+        "instance_count": 523
+    },
+    {
+        "id": 2,
+        "name": "inclusion",
+        "image_count": 312,
+        "instance_count": 812
+    },
+    {
+        "id": 3,
+        "name": "patches",
+        "image_count": 271,
+        "instance_count": 699
+    },
+    {
+        "id": 4,
+        "name": "pitted_surface",
+        "image_count": 248,
+        "instance_count": 351
+    },
+    {
+        "id": 5,
+        "name": "rolled-in_scale",
+        "image_count": 239,
+        "instance_count": 499
+    }
+]

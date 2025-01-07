@@ -50,7 +50,7 @@ class ZeroShotClassifier(nn.Module):
             self.zs_weight = nn.Parameter(zs_weight)
         else:
             self.register_buffer('zs_weight', zs_weight)
-
+        # print(self.zs_weight.shape, self.zs_weight[1], num_classes)
         assert self.zs_weight.shape[1] == num_classes + 1, self.zs_weight.shape
 
     @classmethod

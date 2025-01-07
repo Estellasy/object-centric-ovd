@@ -62,6 +62,7 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
         nn.init.constant_(self.cls_score.bias, bias_value)
 
         if self.use_fed_loss or self.ignore_zero_cats:
+            print("cat_freq_path", cat_freq_path)
             freq_weight = load_class_freq(cat_freq_path, fed_loss_freq_weight)
             self.register_buffer('freq_weight', freq_weight)
         else:
@@ -206,6 +207,7 @@ class CustomFastRCNNOutputLayers(FastRCNNOutputLayers):
             appeared_mask = appeared_mask[:C]
             fed_w = appeared_mask.view(1, C).expand(B, C)   # 拓展掩码到batch大小
             weight = weight * fed_w.float()
+        # print(self.ignore_zero_cats, self.freq_weight) # 这里self.freq_weight 长度是5
         if self.ignore_zero_cats and (self.freq_weight is not None):    # 拓展掩码到batch大小
             w = (self.freq_weight.view(-1) > 1e-4).float()
             weight = weight * w.view(1, C).expand(B, C) # 应用权重

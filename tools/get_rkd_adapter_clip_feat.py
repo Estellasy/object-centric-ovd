@@ -38,7 +38,8 @@ def parse_arguments():
     return args
 
 
-def crop_region(image, box):
+def crop_region(image_path, box):
+    image = Image.open(image_path)
     left, top, right, bottom = box
     im_crop = image.crop((left, top, right, bottom))
     return im_crop
@@ -80,14 +81,15 @@ def get_clip_features(image_path, boxes):
     curr_rkd_region_feats = []
     try:
         for box in boxes:
-            im_crop = crop_region(image_path, box)
+            # print(box["bbox"])
+            im_crop = crop_region(image_path, box["bbox"])
             cropped_region = clip_preprocessor(im_crop).unsqueeze(0).to("cpu")
             with torch.no_grad():
                 image_features = clip_model.encode_image(cropped_region)
                 clip_embeds = image_features.cpu()
                 curr_rkd_region_feats.append((box, clip_embeds))
     except Exception as e:
-        pass
+        print(e)
 
     return curr_rkd_region_feats
 
@@ -150,8 +152,10 @@ class CLIPAdapter(nn.Module):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    dataset_name = args["dataset_name"]
-    dataset_base_dir = args["dataset_base_dir_path"]
+    # dataset_name = args["dataset_name"]
+    # dataset_base_dir = args["dataset_base_dir_path"]
+    dataset_name = "coco"
+    dataset_base_dir = "data/neudet_coco"
     dataset_anno = f"{dataset_base_dir}/annotations/instances_train2017.json"
     output_dir = args["output_dir_path"]
     os.makedirs(output_dir, exist_ok=True)
